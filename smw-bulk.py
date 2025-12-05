@@ -168,15 +168,28 @@ if uploaded:
     })
     
     # --- Write original data to first sheet ---
-    # Keep original formatting as close to input file as possible
     original_sheet_name = "Original Data"
-    df_original.to_excel(writer, sheet_name=original_sheet_name, index=False)
+    df_original.to_excel(writer, sheet_name=original_sheet_name, index=False, startrow=1, header=False)
     
     # Get the original data worksheet
     original_worksheet = writer.sheets[original_sheet_name]
     
     # Set black tab color for Original Data tab
     original_worksheet.set_tab_color('#000000')
+    
+    # Write headers with blue header format
+    for col_num, col_name in enumerate(df_original.columns):
+        original_worksheet.write(0, col_num, col_name, header_format)
+    
+    # Apply text format to all data cells
+    for row_num in range(len(df_original)):
+        for col_num, value in enumerate(df_original.iloc[row_num]):
+            # Handle NaN values
+            if pd.isna(value) or value == 'nan':
+                str_value = ""
+            else:
+                str_value = str(value)
+            original_worksheet.write(row_num + 1, col_num, str_value, text_format)
     
     # Auto-fit columns for readability
     for col_num, col_name in enumerate(df_original.columns):
