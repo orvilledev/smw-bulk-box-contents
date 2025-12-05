@@ -285,17 +285,18 @@ if uploaded:
         # Column E (Issues) - blank with borders (only header is red)
         po_summary_worksheet.write(row_num + 1, 4, "", text_format)
         
-        # Column F (Status) - formula that checks Workflow Link and Issues
+        # Column F (Status) - formula that checks Webflow link (Shipment ID), Workflow Link and Issues
         # Excel row number = row_num + 2 (row 1 is header, row 2 is first data row)
         excel_row = row_num + 2
-        # Column C is Workflow Link (index 2), Column E is Issues (index 4)
-        # Formula: IF both C and E have content → "WITH ISSUE", else IF C has content → "UPLOADED", else blank
-        status_formula = f'=IF(AND(C{excel_row}<>"", E{excel_row}<>""), "WITH ISSUE", IF(C{excel_row}<>"", "UPLOADED", ""))'
+        # Column C is Workflow Link (index 2), Column D is Shipment ID/Webflow link (index 3), Column E is Issues (index 4)
+        # Formula: IF both C (Workflow Link) and E (Issues) have content → "CHECK ISSUES", 
+        #          else IF D (Webflow link/Shipment ID) has content → "UPLOADED", else blank
+        status_formula = f'=IF(AND(C{excel_row}<>"", E{excel_row}<>""), "CHECK ISSUES", IF(D{excel_row}<>"", "UPLOADED", ""))'
         po_summary_worksheet.write_formula(row_num + 1, 5, status_formula, text_format)
     
     # Add conditional formatting for Status column (column F, index 5)
     # Apply yellow format when cell contains "UPLOADED"
-    # Apply red format when cell contains "WITH ISSUE"
+    # Apply red format when cell contains "CHECK ISSUES"
     if len(po_summary_df) > 0:
         # Status column is column F (index 5)
         # Data rows start at row 2 (Excel row 2, xlsxwriter row 1) and go to row len(po_summary_df) + 1
@@ -313,13 +314,13 @@ if uploaded:
             }
         )
         
-        # Conditional format: if cell contains "WITH ISSUE", apply red format
+        # Conditional format: if cell contains "CHECK ISSUE STATUS", apply red format
         po_summary_worksheet.conditional_format(
             first_data_row, 5, last_data_row, 5,  # Column F, rows with data
             {
                 'type': 'text',
                 'criteria': 'containing',
-                'value': 'WITH ISSUE',
+                'value': 'CHECK ISSUE STATUS',
                 'format': with_issue_format
             }
         )
