@@ -146,6 +146,27 @@ if uploaded:
         'num_format': '@'
     })
     
+    # Yellow format for "UPLOADED" status
+    uploaded_format = workbook.add_format({
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'bg_color': '#FFFF00',  # Yellow background
+        'num_format': '@',
+        'locked': False
+    })
+    
+    # Red format for "WITH ISSUE" status
+    with_issue_format = workbook.add_format({
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'bg_color': '#FF0000',  # Red background
+        'font_color': 'white',  # White text for readability
+        'num_format': '@',
+        'locked': False
+    })
+    
     # --- Write original data to first sheet ---
     # Keep original formatting as close to input file as possible
     original_sheet_name = "Original Data"
@@ -264,8 +285,44 @@ if uploaded:
         # Column E (Issues) - blank with borders (only header is red)
         po_summary_worksheet.write(row_num + 1, 4, "", text_format)
         
-        # Column F (Status) - blank with borders
-        po_summary_worksheet.write(row_num + 1, 5, "", text_format)
+        # Column F (Status) - formula that checks Workflow Link and Issues
+        # Excel row number = row_num + 2 (row 1 is header, row 2 is first data row)
+        excel_row = row_num + 2
+        # Column C is Workflow Link (index 2), Column E is Issues (index 4)
+        # Formula: IF both C and E have content → "WITH ISSUE", else IF C has content → "UPLOADED", else blank
+        status_formula = f'=IF(AND(C{excel_row}<>"", E{excel_row}<>""), "WITH ISSUE", IF(C{excel_row}<>"", "UPLOADED", ""))'
+        po_summary_worksheet.write_formula(row_num + 1, 5, status_formula, text_format)
+    
+    # Add conditional formatting for Status column (column F, index 5)
+    # Apply yellow format when cell contains "UPLOADED"
+    # Apply red format when cell contains "WITH ISSUE"
+    if len(po_summary_df) > 0:
+        # Status column is column F (index 5)
+        # Data rows start at row 2 (Excel row 2, xlsxwriter row 1) and go to row len(po_summary_df) + 1
+        first_data_row = 1  # xlsxwriter row 1 = Excel row 2
+        last_data_row = len(po_summary_df)  # xlsxwriter row len = Excel row len + 1
+        
+        # Conditional format: if cell contains "UPLOADED", apply yellow format
+        po_summary_worksheet.conditional_format(
+            first_data_row, 5, last_data_row, 5,  # Column F, rows with data
+            {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'UPLOADED',
+                'format': uploaded_format
+            }
+        )
+        
+        # Conditional format: if cell contains "WITH ISSUE", apply red format
+        po_summary_worksheet.conditional_format(
+            first_data_row, 5, last_data_row, 5,  # Column F, rows with data
+            {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'WITH ISSUE',
+                'format': with_issue_format
+            }
+        )
     
     # Set column widths for PO Summary
     po_summary_worksheet.set_column(0, 0, 20)  # PO Number column
