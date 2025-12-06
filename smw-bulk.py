@@ -193,6 +193,11 @@ if uploaded:
     # Apply text format to all data cells
     for row_num in range(len(df_original)):
         for col_num, value in enumerate(df_original.iloc[row_num]):
+            # Skip writing empty cells in column H (index 7) to avoid borders
+            if col_num == 7:
+                if pd.isna(value) or value == 'nan' or str(value).strip() == '':
+                    continue  # Skip empty cells in column H
+            
             # Handle NaN values
             if pd.isna(value) or value == 'nan':
                 str_value = ""
@@ -211,6 +216,46 @@ if uploaded:
             except:
                 pass
         original_worksheet.set_column(col_num, col_num, min(max_width, 50))
+    
+    # Format column H (index 7) as numbers in Original Data tab
+    # Only format cells with actual data - no borders on empty cells or after last entry
+    if len(df_original.columns) > 7:
+        # Find the last row with data in column H
+        last_data_row = -1
+        for row_num in range(len(df_original) - 1, -1, -1):
+            value = df_original.iloc[row_num, 7]
+            if not (pd.isna(value) or value == 'nan' or str(value).strip() == ''):
+                try:
+                    num_value = pd.to_numeric(value, errors='coerce')
+                    if not pd.isna(num_value):
+                        last_data_row = row_num
+                        break
+                except:
+                    pass
+        
+        # Only write cells with actual data up to the last data entry
+        # Don't write empty cells or cells after the last entry
+        for row_num in range(len(df_original)):
+            if row_num > last_data_row:
+                break  # Stop after last data entry
+                
+            value = df_original.iloc[row_num, 7]
+            if pd.isna(value) or value == 'nan' or str(value).strip() == '':
+                # Skip empty cells - don't write anything to avoid borders
+                continue
+            else:
+                # Convert to numeric, handling errors
+                try:
+                    num_value = pd.to_numeric(value, errors='coerce')
+                    if pd.isna(num_value):
+                        # Skip if conversion fails
+                        continue
+                    else:
+                        # Write as number with borders only for cells with data
+                        original_worksheet.write(row_num + 1, 7, float(num_value), number_format)
+                except:
+                    # Skip if any error occurs
+                    continue
     
     # --- Create PO Summary tab (second tab) ---
     po_summary_sheet_name = "PO Summary"
