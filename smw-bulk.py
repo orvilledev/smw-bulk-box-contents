@@ -23,7 +23,14 @@ if uploaded:
         st.error("File needs at least 3 columns. Please check your file.")
         st.stop()
     
-    # Save original data for the first tab
+    # Convert all Quantity columns to integers (no decimals) in main dataframe
+    for col in df.columns:
+        col_lower = str(col).lower()
+        if 'quantity' in col_lower or 'qty' in col_lower:
+            # Convert to numeric, fill NaN with 0, convert to int, then back to string
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int).astype(str)
+    
+    # Save original data for the first tab (after quantity conversion)
     df_original = df.copy()
     
     # Get the third column (index 2 = column C)
@@ -369,6 +376,13 @@ if uploaded:
         
         # Insert Box# column at position 1 (column B)
         group_df.insert(1, 'Box#', box_numbers)
+        
+        # Convert all Quantity columns to integers (no decimals) in group data
+        for col in group_df.columns:
+            col_lower = str(col).lower()
+            if 'quantity' in col_lower or 'qty' in col_lower:
+                # Convert to numeric, fill NaN with 0, convert to int, then back to string
+                group_df[col] = pd.to_numeric(group_df[col], errors='coerce').fillna(0).astype(int).astype(str)
         
         # Write to Excel sheet (without default formatting)
         sheet_name = g[:31]
