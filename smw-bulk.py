@@ -23,14 +23,7 @@ if uploaded:
         st.error("File needs at least 3 columns. Please check your file.")
         st.stop()
     
-    # Convert all Quantity columns to integers (no decimals) in main dataframe
-    for col in df.columns:
-        col_lower = str(col).lower()
-        if 'quantity' in col_lower or 'qty' in col_lower:
-            # Convert to numeric, fill NaN with 0, convert to int, then back to string
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int).astype(str)
-    
-    # Save original data for the first tab (after quantity conversion)
+    # Save original data for the first tab
     df_original = df.copy()
     
     # Get the third column (index 2 = column C)
@@ -95,6 +88,15 @@ if uploaded:
         'border': 1,
         'bold': True,
         'num_format': '@'
+    })
+    
+    # Number format for column I (converts text to numbers)
+    number_format = workbook.add_format({
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'num_format': '0',  # Format as number with no decimals
+        'locked': False
     })
     
     # Color formats for team member assignments (unlocked for editing)
@@ -377,13 +379,6 @@ if uploaded:
         # Insert Box# column at position 1 (column B)
         group_df.insert(1, 'Box#', box_numbers)
         
-        # Convert all Quantity columns to integers (no decimals) in group data
-        for col in group_df.columns:
-            col_lower = str(col).lower()
-            if 'quantity' in col_lower or 'qty' in col_lower:
-                # Convert to numeric, fill NaN with 0, convert to int, then back to string
-                group_df[col] = pd.to_numeric(group_df[col], errors='coerce').fillna(0).astype(int).astype(str)
-        
         # Write to Excel sheet (without default formatting)
         sheet_name = g[:31]
         group_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1, header=False)
@@ -434,19 +429,30 @@ if uploaded:
             # Set column width (max 50 to avoid extremely wide columns)
             worksheet.set_column(col_num, col_num, min(max_width, 50))
         
-        # Format column J (index 9) as text in all group sheets
-        # Column J is the 10th column (0-based index 9)
-        if len(group_df.columns) > 9:
-            # Set column J format to text (Text to Columns equivalent)
-            worksheet.set_column(9, 9, None, text_format)
-            # Re-write all values in column J with text format to ensure proper formatting
+        # Format column I (index 8) as numbers in all group sheets
+        # Column I is the 9th column (0-based index 8)
+        if len(group_df.columns) > 8:
+            # Set column I format to number
+            worksheet.set_column(8, 8, None, number_format)
+            # Re-write all values in column I as numbers
             for row_num in range(len(group_df)):
-                value = group_df.iloc[row_num, 9]
-                if pd.isna(value) or value == 'nan':
-                    str_value = ""
+                value = group_df.iloc[row_num, 8]
+                if pd.isna(value) or value == 'nan' or str(value).strip() == '':
+                    # Write empty cell
+                    worksheet.write(row_num + 1, 8, "", number_format)
                 else:
-                    str_value = str(value)
-                worksheet.write(row_num + 1, 9, str_value, text_format)
+                    # Convert to numeric, handling errors
+                    try:
+                        num_value = pd.to_numeric(value, errors='coerce')
+                        if pd.isna(num_value):
+                            # If conversion fails, write as empty
+                            worksheet.write(row_num + 1, 8, "", number_format)
+                        else:
+                            # Write as number
+                            worksheet.write(row_num + 1, 8, float(num_value), number_format)
+                    except:
+                        # If any error occurs, write as empty
+                        worksheet.write(row_num + 1, 8, "", number_format)
         
         # --- Add Summary: Total Boxes and Total Quantity ---
         summary_start_row = len(group_df) + 3  # Leave a blank row after data
