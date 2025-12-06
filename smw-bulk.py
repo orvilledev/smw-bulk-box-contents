@@ -436,11 +436,27 @@ if uploaded:
         
         # Format column I (index 8) as numbers in all group sheets
         # Column I is the 9th column (0-based index 8)
+        # Only format cells with actual data - no borders on empty cells or after last entry
         if len(group_df.columns) > 8:
-            # Set column I format to number
-            worksheet.set_column(8, 8, None, number_format)
-            # Re-write all values in column I as numbers (skip empty cells to avoid borders)
+            # Find the last row with data in column I
+            last_data_row = -1
+            for row_num in range(len(group_df) - 1, -1, -1):
+                value = group_df.iloc[row_num, 8]
+                if not (pd.isna(value) or value == 'nan' or str(value).strip() == ''):
+                    try:
+                        num_value = pd.to_numeric(value, errors='coerce')
+                        if not pd.isna(num_value):
+                            last_data_row = row_num
+                            break
+                    except:
+                        pass
+            
+            # Only write cells with actual data up to the last data entry
+            # Don't write empty cells or cells after the last entry
             for row_num in range(len(group_df)):
+                if row_num > last_data_row:
+                    break  # Stop after last data entry
+                    
                 value = group_df.iloc[row_num, 8]
                 if pd.isna(value) or value == 'nan' or str(value).strip() == '':
                     # Skip empty cells - don't write anything to avoid borders
@@ -450,13 +466,13 @@ if uploaded:
                     try:
                         num_value = pd.to_numeric(value, errors='coerce')
                         if pd.isna(num_value):
-                            # If conversion fails, skip (don't write empty cell with border)
+                            # Skip if conversion fails
                             continue
                         else:
-                            # Write as number
+                            # Write as number with borders only for cells with data
                             worksheet.write(row_num + 1, 8, float(num_value), number_format)
                     except:
-                        # If any error occurs, skip (don't write empty cell with border)
+                        # Skip if any error occurs
                         continue
         
         # --- Add Summary: Total Boxes and Total Quantity ---
