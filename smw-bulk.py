@@ -176,6 +176,16 @@ if uploaded:
         'locked': False
     })
     
+    # Orange format for "AWAITING UPLOAD" status
+    awaiting_upload_format = workbook.add_format({
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'bg_color': '#FFA500',  # Orange background
+        'num_format': '@',
+        'locked': False
+    })
+    
     # --- Write original data to first sheet ---
     original_sheet_name = "Original Data"
     df_original.to_excel(writer, sheet_name=original_sheet_name, index=False, startrow=1, header=False)
@@ -356,8 +366,12 @@ if uploaded:
         # Excel row number = row_num + 2 (row 1 is header, row 2 is first data row)
         excel_row = row_num + 2
         # Column C is Workflow Link (index 2), Column E is Issues (index 4)
-        # Formula: IF both C and E have content → "WITH ISSUE", else IF C has content → "UPLOADED", else blank
-        status_formula = f'=IF(AND(C{excel_row}<>"", E{excel_row}<>""), "WITH ISSUE", IF(C{excel_row}<>"", "UPLOADED", ""))'
+        # Formula logic:
+        # - If C is empty AND E is empty → "AWAITING UPLOAD"
+        # - If C is empty AND E has content → "WITH ISSUE"
+        # - If C has content AND E has content → "WITH ISSUE"
+        # - If C has content AND E is empty → "UPLOADED"
+        status_formula = f'=IF(AND(C{excel_row}="", E{excel_row}=""), "AWAITING UPLOAD", IF(AND(C{excel_row}="", E{excel_row}<>""), "WITH ISSUE", IF(AND(C{excel_row}<>"", E{excel_row}<>""), "WITH ISSUE", "UPLOADED")))'
         po_summary_worksheet.write_formula(row_num + 1, 5, status_formula, text_format)
     
     # Add conditional formatting for Status column (column F, index 5)
@@ -388,6 +402,17 @@ if uploaded:
                 'criteria': 'containing',
                 'value': 'WITH ISSUE',
                 'format': with_issue_format
+            }
+        )
+        
+        # Conditional format: if cell contains "AWAITING UPLOAD", apply orange format
+        po_summary_worksheet.conditional_format(
+            first_data_row, 5, last_data_row, 5,  # Column F, rows with data
+            {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'AWAITING UPLOAD',
+                'format': awaiting_upload_format
             }
         )
     
