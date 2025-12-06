@@ -407,6 +407,11 @@ if uploaded:
         # Apply formatting to data cells as text to preserve leading zeros
         for row_num in range(len(group_df)):
             for col_num, value in enumerate(group_df.iloc[row_num]):
+                # Skip writing empty cells in column I (index 8) to avoid borders
+                if col_num == 8:
+                    if pd.isna(value) or value == 'nan' or str(value).strip() == '':
+                        continue  # Skip empty cells in column I
+                
                 # Since we read as strings, just handle NaN values
                 if pd.isna(value) or value == 'nan':
                     str_value = ""
@@ -434,25 +439,25 @@ if uploaded:
         if len(group_df.columns) > 8:
             # Set column I format to number
             worksheet.set_column(8, 8, None, number_format)
-            # Re-write all values in column I as numbers
+            # Re-write all values in column I as numbers (skip empty cells to avoid borders)
             for row_num in range(len(group_df)):
                 value = group_df.iloc[row_num, 8]
                 if pd.isna(value) or value == 'nan' or str(value).strip() == '':
-                    # Write empty cell
-                    worksheet.write(row_num + 1, 8, "", number_format)
+                    # Skip empty cells - don't write anything to avoid borders
+                    continue
                 else:
                     # Convert to numeric, handling errors
                     try:
                         num_value = pd.to_numeric(value, errors='coerce')
                         if pd.isna(num_value):
-                            # If conversion fails, write as empty
-                            worksheet.write(row_num + 1, 8, "", number_format)
+                            # If conversion fails, skip (don't write empty cell with border)
+                            continue
                         else:
                             # Write as number
                             worksheet.write(row_num + 1, 8, float(num_value), number_format)
                     except:
-                        # If any error occurs, write as empty
-                        worksheet.write(row_num + 1, 8, "", number_format)
+                        # If any error occurs, skip (don't write empty cell with border)
+                        continue
         
         # --- Add Summary: Total Boxes and Total Quantity ---
         summary_start_row = len(group_df) + 3  # Leave a blank row after data
