@@ -5,7 +5,7 @@ import random
 from datetime import datetime
 import pytz
 
-st.title("Shipment Grouping Tool")
+st.title("SMW Shipment Grouping Tool")
 st.write(
     "Upload an Excel file. This tool will group rows based on the first 15 characters "
     "of Column C and separate shipments (A, B, C...) into alphabetical order, exporting "
