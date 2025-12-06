@@ -5,7 +5,7 @@ import random
 from datetime import datetime
 import pytz
 
-st.title("SMW Shipment Grouping Tool")
+st.title("Shipment Grouping Tool")
 st.write(
     "Upload an Excel file. This tool will group rows based on the first 15 characters "
     "of Column C and separate shipments (A, B, C...) into alphabetical order, exporting "
@@ -319,9 +319,8 @@ if uploaded:
     po_summary_worksheet.write(0, 0, 'PO Number', header_format)
     po_summary_worksheet.write(0, 1, 'Assigned to', header_format)
     po_summary_worksheet.write(0, 2, 'Workflow Link', header_format)
-    po_summary_worksheet.write(0, 3, 'Shipment ID', header_format)
-    po_summary_worksheet.write(0, 4, 'Issues', red_header_format)  # Red header for Issues
-    po_summary_worksheet.write(0, 5, 'Status', header_format)
+    po_summary_worksheet.write(0, 3, 'Issues', red_header_format)  # Red header for Issues
+    po_summary_worksheet.write(0, 4, 'Status', header_format)
     
     # Create mapping of PO to assigned person for tab coloring later
     po_to_person = {}
@@ -356,36 +355,33 @@ if uploaded:
         # Column C (Workflow Link) - blank with borders
         po_summary_worksheet.write(row_num + 1, 2, "", text_format)
         
-        # Column D (Shipment ID) - blank with borders
+        # Column D (Issues) - blank with borders (only header is red)
         po_summary_worksheet.write(row_num + 1, 3, "", text_format)
         
-        # Column E (Issues) - blank with borders (only header is red)
-        po_summary_worksheet.write(row_num + 1, 4, "", text_format)
-        
-        # Column F (Status) - formula that checks Workflow Link and Issues
+        # Column E (Status) - formula that checks Workflow Link and Issues
         # Excel row number = row_num + 2 (row 1 is header, row 2 is first data row)
         excel_row = row_num + 2
-        # Column C is Workflow Link (index 2), Column E is Issues (index 4)
+        # Column C is Workflow Link (index 2), Column D is Issues (index 3)
         # Formula logic:
-        # - If C is empty AND E is empty → "AWAITING UPLOAD"
-        # - If C is empty AND E has content → "WITH ISSUE"
-        # - If C has content AND E has content → "WITH ISSUE"
-        # - If C has content AND E is empty → "UPLOADED"
-        status_formula = f'=IF(AND(C{excel_row}="", E{excel_row}=""), "AWAITING UPLOAD", IF(AND(C{excel_row}="", E{excel_row}<>""), "WITH ISSUE", IF(AND(C{excel_row}<>"", E{excel_row}<>""), "WITH ISSUE", "UPLOADED")))'
-        po_summary_worksheet.write_formula(row_num + 1, 5, status_formula, text_format)
+        # - If C is empty AND D is empty → "AWAITING UPLOAD"
+        # - If C is empty AND D has content → "WITH ISSUE"
+        # - If C has content AND D has content → "WITH ISSUE"
+        # - If C has content AND D is empty → "UPLOADED"
+        status_formula = f'=IF(AND(C{excel_row}="", D{excel_row}=""), "AWAITING UPLOAD", IF(AND(C{excel_row}="", D{excel_row}<>""), "WITH ISSUE", IF(AND(C{excel_row}<>"", D{excel_row}<>""), "WITH ISSUE", "UPLOADED")))'
+        po_summary_worksheet.write_formula(row_num + 1, 4, status_formula, text_format)
     
-    # Add conditional formatting for Status column (column F, index 5)
+    # Add conditional formatting for Status column (column E, index 4)
     # Apply yellow format when cell contains "UPLOADED"
     # Apply red format when cell contains "WITH ISSUE"
     if len(po_summary_df) > 0:
-        # Status column is column F (index 5)
+        # Status column is column E (index 4)
         # Data rows start at row 2 (Excel row 2, xlsxwriter row 1) and go to row len(po_summary_df) + 1
         first_data_row = 1  # xlsxwriter row 1 = Excel row 2
         last_data_row = len(po_summary_df)  # xlsxwriter row len = Excel row len + 1
         
         # Conditional format: if cell contains "UPLOADED", apply yellow format
         po_summary_worksheet.conditional_format(
-            first_data_row, 5, last_data_row, 5,  # Column F, rows with data
+            first_data_row, 4, last_data_row, 4,  # Column E, rows with data
             {
                 'type': 'text',
                 'criteria': 'containing',
@@ -396,7 +392,7 @@ if uploaded:
         
         # Conditional format: if cell contains "WITH ISSUE", apply red format
         po_summary_worksheet.conditional_format(
-            first_data_row, 5, last_data_row, 5,  # Column F, rows with data
+            first_data_row, 4, last_data_row, 4,  # Column E, rows with data
             {
                 'type': 'text',
                 'criteria': 'containing',
@@ -407,7 +403,7 @@ if uploaded:
         
         # Conditional format: if cell contains "AWAITING UPLOAD", apply orange format
         po_summary_worksheet.conditional_format(
-            first_data_row, 5, last_data_row, 5,  # Column F, rows with data
+            first_data_row, 4, last_data_row, 4,  # Column E, rows with data
             {
                 'type': 'text',
                 'criteria': 'containing',
@@ -420,9 +416,8 @@ if uploaded:
     po_summary_worksheet.set_column(0, 0, 20)  # PO Number column
     po_summary_worksheet.set_column(1, 1, 15)  # Assigned to column
     po_summary_worksheet.set_column(2, 2, 120)  # Workflow Link column (903px ≈ 120 chars)
-    po_summary_worksheet.set_column(3, 3, 20)  # Shipment ID column
-    po_summary_worksheet.set_column(4, 4, 25)  # Issues column
-    po_summary_worksheet.set_column(5, 5, 20)  # Status column
+    po_summary_worksheet.set_column(3, 3, 25)  # Issues column
+    po_summary_worksheet.set_column(4, 4, 20)  # Status column
 
     # Get unique groups based on first 15 characters
     for g in df["group_15"].unique():
