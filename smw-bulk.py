@@ -434,6 +434,20 @@ if uploaded:
             # Set column width (max 50 to avoid extremely wide columns)
             worksheet.set_column(col_num, col_num, min(max_width, 50))
         
+        # Format column J (index 9) as text in all group sheets
+        # Column J is the 10th column (0-based index 9)
+        if len(group_df.columns) > 9:
+            # Set column J format to text (Text to Columns equivalent)
+            worksheet.set_column(9, 9, None, text_format)
+            # Re-write all values in column J with text format to ensure proper formatting
+            for row_num in range(len(group_df)):
+                value = group_df.iloc[row_num, 9]
+                if pd.isna(value) or value == 'nan':
+                    str_value = ""
+                else:
+                    str_value = str(value)
+                worksheet.write(row_num + 1, 9, str_value, text_format)
+        
         # --- Add Summary: Total Boxes and Total Quantity ---
         summary_start_row = len(group_df) + 3  # Leave a blank row after data
         
