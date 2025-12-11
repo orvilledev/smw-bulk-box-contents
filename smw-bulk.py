@@ -354,8 +354,47 @@ if uploaded:
         # Give to Paulo, JB, or Stephanie (not Orville)
         assignments.append(random.choice(["Paulo", "JB", "Stephanie"]))
     
-    # Shuffle assignments for randomness
-    random.shuffle(assignments)
+    # Shuffle assignments to avoid consecutive duplicates
+    # Algorithm: distribute assignments so no two consecutive are the same when possible
+    def shuffle_no_consecutive(items):
+        """Shuffle items ensuring no two consecutive items are the same when possible"""
+        if len(items) <= 1:
+            return items
+        
+        from collections import Counter
+        counts = Counter(items)
+        result = []
+        remaining = list(items)
+        last_item = None
+        
+        # Try to avoid consecutive duplicates
+        while remaining:
+            # Get available items (different from last)
+            available = [x for x in remaining if x != last_item]
+            
+            if available:
+                # Choose randomly from available items
+                chosen = random.choice(available)
+            else:
+                # No choice - must use the same as last (unavoidable)
+                chosen = remaining[0]
+            
+            result.append(chosen)
+            remaining.remove(chosen)
+            last_item = chosen
+        
+        # Final pass: try to fix any remaining consecutive duplicates by swapping
+        for i in range(len(result) - 1):
+            if result[i] == result[i + 1]:
+                # Try to find a different item to swap with
+                for j in range(i + 2, len(result)):
+                    if result[j] != result[i] and (j == len(result) - 1 or result[j] != result[i + 1]):
+                        result[i + 1], result[j] = result[j], result[i + 1]
+                        break
+        
+        return result
+    
+    assignments = shuffle_no_consecutive(assignments)
     
     # Create dataframe for PO Summary
     po_summary_df = pd.DataFrame({
@@ -570,12 +609,8 @@ if uploaded:
     for g, processed_po in groups_with_processed_pos:
         group_df = df[df["group_15"] == g].copy()
 
-        # Within each sheet, sort by shipment letter (16th char)
-        group_df["shipment_letter"] = third_column[group_df.index].astype(str).str[15:16]
-        group_df = group_df.sort_values(by="shipment_letter")
-
-        # Remove helper columns before writing
-        group_df = group_df.drop(columns=["shipment_letter", "group_15", "shipment"])
+        # Remove helper columns before processing
+        group_df = group_df.drop(columns=["group_15", "shipment"])
         
         # Create Box# column based on unique values in the first column (Carton Num)
         # Get the first column (column A - Carton Num)
@@ -590,6 +625,21 @@ if uploaded:
         
         # Insert Box# column at position 1 (column B)
         group_df.insert(1, 'Box#', box_numbers)
+        
+        # Sort by Box# first (Column B, index 1) numerically, then by PO Number (Column D, index 3) alphabetically
+        # Box# is Column B (index 1), PO Number is Column D (index 3)
+        box_col_name = group_df.columns[1]  # Column B (index 1) is the Box# column
+        po_col_name = group_df.columns[3]  # Column D (index 3) is the PO Number column
+        
+        # Convert Box# to numeric for proper numerical sorting, PO Number to string for alphabetical sorting
+        group_df[box_col_name] = pd.to_numeric(group_df[box_col_name], errors='coerce').fillna(0)
+        group_df[po_col_name] = group_df[po_col_name].astype(str)
+        
+        # Sort by Box# first (ascending), then by PO Number (alphabetically)
+        group_df = group_df.sort_values(by=[box_col_name, po_col_name])
+        
+        # Convert Box# back to string for display
+        group_df[box_col_name] = group_df[box_col_name].astype(int).astype(str)
         
         # Write to Excel sheet (without default formatting)
         # Use processed PO number for sheet name (already processed above, truncate to 31 chars for Excel limit)
