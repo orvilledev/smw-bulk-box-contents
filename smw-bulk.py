@@ -77,6 +77,7 @@ if uploaded:
         'valign': 'vcenter',
         'border': 1,
         'num_format': '@',  # Format as text to preserve leading zeros and avoid scientific notation
+        'text_wrap': False,  # Disable text wrapping for better visibility
         'locked': False  # Allow editing
     })
     
@@ -125,6 +126,7 @@ if uploaded:
         'border': 1,
         'bg_color': '#FFFFE0',  # Light yellow
         'num_format': '@',
+        'text_wrap': False,  # Disable text wrapping for better visibility
         'locked': False
     })
     
@@ -134,6 +136,7 @@ if uploaded:
         'border': 1,
         'bg_color': '#ADD8E6',  # Light blue
         'num_format': '@',
+        'text_wrap': False,  # Disable text wrapping for better visibility
         'locked': False
     })
     
@@ -143,6 +146,7 @@ if uploaded:
         'border': 1,
         'bg_color': '#FFDAB9',  # Light orange/peach
         'num_format': '@',
+        'text_wrap': False,  # Disable text wrapping for better visibility
         'locked': False
     })
     
@@ -152,6 +156,7 @@ if uploaded:
         'border': 1,
         'bg_color': '#FFB6C1',  # Light pink
         'num_format': '@',
+        'text_wrap': False,  # Disable text wrapping for better visibility
         'locked': False
     })
     
@@ -161,6 +166,7 @@ if uploaded:
         'border': 1,
         'bg_color': '#90EE90',  # Light green
         'num_format': '@',
+        'text_wrap': False,  # Disable text wrapping for better visibility
         'locked': False
     })
     
@@ -289,13 +295,42 @@ if uploaded:
     # --- Create PO Summary tab (second tab) ---
     po_summary_sheet_name = "PO Summary"
     
-    # Get unique PO numbers - use full PO numbers for display
+    # Get unique PO numbers - use full PO numbers for grouping
     unique_groups = sorted(df["group_15"].unique())
-    unique_pos = [group_to_full_po[g] for g in unique_groups]  # Use full PO numbers
+    unique_pos_full = [group_to_full_po[g] for g in unique_groups]  # Use full PO numbers
+    
+    # Process PO numbers: remove last character if it's a letter, keep if it's a number
+    def process_po_number(po_num):
+        """Remove last character if it's a letter, keep if it's a number"""
+        po_str = str(po_num)
+        if len(po_str) > 0:
+            last_char = po_str[-1]
+            # Check if last character is a letter
+            if last_char.isalpha():
+                # Remove the last letter
+                return po_str[:-1]
+            # If it's a number, keep it
+            return po_str
+        return po_str
+    
+    # Process PO numbers and handle duplicates
+    # Create mapping from full PO to processed PO, and track which processed POs we've seen
+    full_to_processed = {}
+    processed_pos = []
+    seen_pos = set()
+    for po_full in unique_pos_full:
+        po_processed = process_po_number(po_full)
+        full_to_processed[po_full] = po_processed
+        # Only add if we haven't seen this processed PO number before
+        if po_processed not in seen_pos:
+            processed_pos.append(po_processed)
+            seen_pos.add(po_processed)
+    
+    unique_pos = processed_pos
     total_pos = len(unique_pos)
     
-    # Team members - Orville gets lower priority for remainders
-    team_members = ["Paulo", "JB", "Sunshine", "Stephanie", "Orville"]
+    # Team members - Orville gets lower priority for remainders (Sunshine removed)
+    team_members = ["Paulo", "JB", "Stephanie", "Orville"]
     
     # Calculate base assignment per person
     base_per_person = total_pos // len(team_members)
@@ -304,7 +339,7 @@ if uploaded:
     # Create assignment list
     assignments = []
     for i, member in enumerate(team_members):
-        # Give extra POs to Paulo, JB, Sunshine, Stephanie (not Orville) if there's remainder
+        # Give extra POs to Paulo, JB, Stephanie (not Orville) if there's remainder
         if i < remainder and member != "Orville":
             count = base_per_person + 1
         elif i < remainder and member == "Orville":
@@ -316,8 +351,8 @@ if uploaded:
     
     # Handle any remaining POs (if Orville didn't get extras)
     while len(assignments) < total_pos:
-        # Give to Paulo, JB, Sunshine, or Stephanie (not Orville)
-        assignments.append(random.choice(["Paulo", "JB", "Sunshine", "Stephanie"]))
+        # Give to Paulo, JB, or Stephanie (not Orville)
+        assignments.append(random.choice(["Paulo", "JB", "Stephanie"]))
     
     # Shuffle assignments for randomness
     random.shuffle(assignments)
@@ -343,9 +378,10 @@ if uploaded:
     po_summary_worksheet.write(0, 4, 'Status', header_format)
     
     # Create mapping of PO to assigned person for tab coloring later
+    # Use processed PO numbers as keys (since that's what's displayed)
     po_to_person = {}
     for row_num in range(len(po_summary_df)):
-        po_num = str(po_summary_df.iloc[row_num, 0])
+        po_num = str(po_summary_df.iloc[row_num, 0])  # This is now the processed PO number
         assigned_person = str(po_summary_df.iloc[row_num, 1])
         po_to_person[po_num] = assigned_person
     
@@ -357,8 +393,6 @@ if uploaded:
         # Get assigned person and choose appropriate color format
         if assigned_person == "Orville":
             cell_format = orville_format
-        elif assigned_person == "Sunshine":
-            cell_format = sunshine_format
         elif assigned_person == "Stephanie":
             cell_format = stephanie_format
         elif assigned_person == "Paulo":
@@ -431,16 +465,109 @@ if uploaded:
                 'format': awaiting_upload_format
             }
         )
+        
+        # Add conditional formatting for "Assigned to" column (column B, index 1) and PO Number (column A, index 0)
+        # This allows colors to automatically change when someone edits the name
+        # Column B (Assigned to) - conditional formatting based on name
+        po_summary_worksheet.conditional_format(
+            first_data_row, 1, last_data_row, 1,  # Column B, rows with data
+            {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'Orville',
+                'format': orville_format
+            }
+        )
+        po_summary_worksheet.conditional_format(
+            first_data_row, 1, last_data_row, 1,  # Column B, rows with data
+            {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'Stephanie',
+                'format': stephanie_format
+            }
+        )
+        po_summary_worksheet.conditional_format(
+            first_data_row, 1, last_data_row, 1,  # Column B, rows with data
+            {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'Paulo',
+                'format': paulo_format
+            }
+        )
+        po_summary_worksheet.conditional_format(
+            first_data_row, 1, last_data_row, 1,  # Column B, rows with data
+            {
+                'type': 'text',
+                'criteria': 'containing',
+                'value': 'JB',
+                'format': jb_format
+            }
+        )
+        
+        # Column A (PO Number) - conditional formatting to match assigned person in column B
+        # Use formula-based conditional formatting that references column B
+        # Orville - check if corresponding row in column B equals "Orville"
+        po_summary_worksheet.conditional_format(
+            first_data_row, 0, last_data_row, 0,  # Column A, rows with data
+            {
+                'type': 'formula',
+                'criteria': '=$B2="Orville"',
+                'format': orville_format
+            }
+        )
+        # Stephanie
+        po_summary_worksheet.conditional_format(
+            first_data_row, 0, last_data_row, 0,  # Column A, rows with data
+            {
+                'type': 'formula',
+                'criteria': '=$B2="Stephanie"',
+                'format': stephanie_format
+            }
+        )
+        # Paulo
+        po_summary_worksheet.conditional_format(
+            first_data_row, 0, last_data_row, 0,  # Column A, rows with data
+            {
+                'type': 'formula',
+                'criteria': '=$B2="Paulo"',
+                'format': paulo_format
+            }
+        )
+        # JB
+        po_summary_worksheet.conditional_format(
+            first_data_row, 0, last_data_row, 0,  # Column A, rows with data
+            {
+                'type': 'formula',
+                'criteria': '=$B2="JB"',
+                'format': jb_format
+            }
+        )
     
-    # Set column widths for PO Summary
-    po_summary_worksheet.set_column(0, 0, 20)  # PO Number column
-    po_summary_worksheet.set_column(1, 1, 15)  # Assigned to column
+    # Set column widths for PO Summary - wider columns for better visibility
+    po_summary_worksheet.set_column(0, 0, 30)  # PO Number column - increased for full PO numbers
+    po_summary_worksheet.set_column(1, 1, 18)  # Assigned to column - increased slightly
     po_summary_worksheet.set_column(2, 2, 120)  # Workflow Link column (903px ≈ 120 chars)
-    po_summary_worksheet.set_column(3, 3, 25)  # Issues column
-    po_summary_worksheet.set_column(4, 4, 20)  # Status column
+    po_summary_worksheet.set_column(3, 3, 30)  # Issues column - increased for better visibility
+    po_summary_worksheet.set_column(4, 4, 25)  # Status column - increased for "AWAITING UPLOAD" text
 
     # Get unique groups based on first 15 characters
-    for g in df["group_15"].unique():
+    # Sort groups alphabetically by processed PO number for sheet ordering
+    unique_groups_list = list(df["group_15"].unique())
+    
+    # Create list of (group, processed_po) tuples and sort by processed_po
+    groups_with_processed_pos = []
+    for g in unique_groups_list:
+        full_po = group_to_full_po[g]
+        processed_po = process_po_number(full_po)
+        groups_with_processed_pos.append((g, processed_po))
+    
+    # Sort by processed PO number alphabetically
+    groups_with_processed_pos.sort(key=lambda x: x[1])
+    
+    # Create sheets in alphabetical order
+    for g, processed_po in groups_with_processed_pos:
         group_df = df[df["group_15"] == g].copy()
 
         # Within each sheet, sort by shipment letter (16th char)
@@ -465,22 +592,21 @@ if uploaded:
         group_df.insert(1, 'Box#', box_numbers)
         
         # Write to Excel sheet (without default formatting)
-        # Use full PO number for sheet name (truncate to 31 chars for Excel limit)
+        # Use processed PO number for sheet name (already processed above, truncate to 31 chars for Excel limit)
         full_po = group_to_full_po[g]
-        sheet_name = full_po[:31]  # Use full PO, but truncate to Excel's 31-char limit
+        sheet_name = processed_po[:31]  # Use processed PO, but truncate to Excel's 31-char limit
         group_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1, header=False)
         
         # Get the worksheet object
         worksheet = writer.sheets[sheet_name]
         
         # Color the tab based on assigned person
-        # Use the full PO number for lookup
-        if full_po in po_to_person:
-            assigned_person = po_to_person[full_po]
+        # Process the full PO number to get the processed version for lookup
+        processed_po = process_po_number(full_po)
+        if processed_po in po_to_person:
+            assigned_person = po_to_person[processed_po]
             if assigned_person == "Orville":
                 worksheet.set_tab_color('#FFFFE0')  # Light yellow
-            elif assigned_person == "Sunshine":
-                worksheet.set_tab_color('#ADD8E6')  # Light blue
             elif assigned_person == "Stephanie":
                 worksheet.set_tab_color('#FFDAB9')  # Light orange
             elif assigned_person == "Paulo":
