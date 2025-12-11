@@ -32,6 +32,14 @@ if uploaded:
     # --- Extract grouping keys ---
     df["group_15"] = third_column.astype(str).str[:15]      # First 15 characters
     df["shipment"] = third_column.astype(str).str[:16]      # First 16 characters (with A/B/C)
+    
+    # Create a mapping of group_15 to the full PO number (first occurrence)
+    group_to_full_po = {}
+    for idx in df.index:
+        group_key = df.loc[idx, "group_15"]
+        if group_key not in group_to_full_po:
+            # Store the full value from column C
+            group_to_full_po[group_key] = str(third_column.loc[idx])
 
     # Sort alphabetically by shipment key
     df = df.sort_values(by=["group_15", "shipment"])
@@ -88,6 +96,17 @@ if uploaded:
         'border': 1,
         'bold': True,
         'num_format': '@'
+    })
+    
+    # Dark orange format for pivot table headers and totals
+    dark_orange_format = workbook.add_format({
+        'bold': True,
+        'text_wrap': True,
+        'valign': 'vcenter',
+        'align': 'center',
+        'fg_color': '#CC6600',  # Darker orange background
+        'font_color': 'white',
+        'border': 1
     })
     
     # Number format for column I (converts text to numbers)
@@ -270,8 +289,9 @@ if uploaded:
     # --- Create PO Summary tab (second tab) ---
     po_summary_sheet_name = "PO Summary"
     
-    # Get unique PO numbers (15 characters from group_15)
-    unique_pos = sorted(df["group_15"].unique())
+    # Get unique PO numbers - use full PO numbers for display
+    unique_groups = sorted(df["group_15"].unique())
+    unique_pos = [group_to_full_po[g] for g in unique_groups]  # Use full PO numbers
     total_pos = len(unique_pos)
     
     # Team members - Orville gets lower priority for remainders
@@ -445,15 +465,18 @@ if uploaded:
         group_df.insert(1, 'Box#', box_numbers)
         
         # Write to Excel sheet (without default formatting)
-        sheet_name = g[:31]
+        # Use full PO number for sheet name (truncate to 31 chars for Excel limit)
+        full_po = group_to_full_po[g]
+        sheet_name = full_po[:31]  # Use full PO, but truncate to Excel's 31-char limit
         group_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1, header=False)
         
         # Get the worksheet object
         worksheet = writer.sheets[sheet_name]
         
         # Color the tab based on assigned person
-        if g in po_to_person:
-            assigned_person = po_to_person[g]
+        # Use the full PO number for lookup
+        if full_po in po_to_person:
+            assigned_person = po_to_person[full_po]
             if assigned_person == "Orville":
                 worksheet.set_tab_color('#FFFFE0')  # Light yellow
             elif assigned_person == "Sunshine":
@@ -568,7 +591,7 @@ if uploaded:
         worksheet.write(summary_start_row + 1, 0, 'Total Quantity:', header_format)
         worksheet.write(summary_start_row + 1, 1, str(int(total_qty)), bold_text_format)
         
-        # --- Create Pivot Table Summary starting at column L ---
+        # --- Create Pivot Table Summary starting at column Q ---
         # Find the columns we need for pivot (UPC and Quantity)
         # Assuming columns A-J contain the data
         pivot_data = group_df.iloc[:, :10].copy()  # First 10 columns (A to J)
@@ -599,8 +622,8 @@ if uploaded:
                 fill_value=0
             )
             
-            # Write pivot table starting at column L (column index 11)
-            start_col = 11
+            # Write pivot table starting at column Q (column index 16)
+            start_col = 16
             start_row = 0
             
             # Calculate row totals (total per UPC)
@@ -612,15 +635,15 @@ if uploaded:
             # Calculate grand total
             grand_total = pivot_table.sum().sum()
             
-            # Write "UPC" header at L1
-            worksheet.write(start_row, start_col, 'UPC', header_format)
+            # Write "UPC" header at Q1
+            worksheet.write(start_row, start_col, 'UPC', dark_orange_format)
             
             # Write Box# headers (Box 1, Box 2, etc.)
             for i, box_num in enumerate(pivot_table.columns):
-                worksheet.write(start_row, start_col + 1 + i, f'Box {box_num}', header_format)
+                worksheet.write(start_row, start_col + 1 + i, f'Box {box_num}', dark_orange_format)
             
             # Write "Total" header for row totals column
-            worksheet.write(start_row, start_col + 1 + len(pivot_table.columns), 'Total', header_format)
+            worksheet.write(start_row, start_col + 1 + len(pivot_table.columns), 'Total', dark_orange_format)
             
             # Write the pivot table data with row totals
             for row_idx, upc in enumerate(pivot_table.index):
@@ -640,16 +663,16 @@ if uploaded:
             
             # Write "Total" row at the bottom
             total_row_idx = start_row + 1 + len(pivot_table.index)
-            worksheet.write(total_row_idx, start_col, 'Total', header_format)
+            worksheet.write(total_row_idx, start_col, 'Total', dark_orange_format)
             
-            # Write column totals (bold, leave blank if zero)
+            # Write column totals (dark orange, leave blank if zero)
             for col_idx, box_num in enumerate(pivot_table.columns):
                 col_total = int(col_totals[box_num])
                 col_total_value = "" if col_total == 0 else str(col_total)
-                worksheet.write(total_row_idx, start_col + 1 + col_idx, col_total_value, bold_text_format)
+                worksheet.write(total_row_idx, start_col + 1 + col_idx, col_total_value, dark_orange_format)
             
-            # Write grand total (bold)
-            worksheet.write(total_row_idx, start_col + 1 + len(pivot_table.columns), str(int(grand_total)), bold_text_format)
+            # Write grand total (dark orange)
+            worksheet.write(total_row_idx, start_col + 1 + len(pivot_table.columns), str(int(grand_total)), dark_orange_format)
             
             # Auto-fit columns for pivot table
             worksheet.set_column(start_col, start_col, 25)  # UPC column
