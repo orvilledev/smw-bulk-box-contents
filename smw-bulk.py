@@ -180,6 +180,28 @@ if uploaded:
         'num_format': '@'
     })
     
+    # Red highlight format for PO Number column when missing letters
+    red_highlight_format = workbook.add_format({
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'bg_color': '#FF0000',  # Red background
+        'font_color': 'white',  # White text for readability
+        'num_format': '@',
+        'text_wrap': False
+    })
+    
+    # Red format for missing PO number warning message
+    red_warning_format = workbook.add_format({
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'bg_color': '#FF0000',  # Red background
+        'font_color': 'white',  # White text
+        'num_format': '@',
+        'bold': True
+    })
+    
     # Yellow format for "UPLOADED" status
     uploaded_format = workbook.add_format({
         'align': 'center',
@@ -766,6 +788,55 @@ if uploaded:
         
         worksheet.write(summary_start_row + 1, 0, 'Total Quantity:', header_format)
         worksheet.write(summary_start_row + 1, 1, str(int(total_qty)), bold_text_format)
+        
+        # --- Check for missing PO Number letters in Column D ---
+        # Extract last character from each PO Number in Column D (index 3)
+        po_col_name = group_df.columns[3]  # Column D (index 3) is the PO Number column
+        po_numbers = group_df[po_col_name].astype(str)
+        
+        # Extract last character from each PO number
+        last_letters = []
+        for po in po_numbers:
+            if len(po) > 0:
+                last_char = po[-1].upper()
+                if last_char.isalpha():
+                    last_letters.append(last_char)
+        
+        # Check if sequence is complete (A, B, C, D, etc. without gaps, except last)
+        has_missing = False
+        if len(last_letters) > 0:
+            # Get unique letters and sort them
+            unique_letters = sorted(set(last_letters))
+            
+            # Check if sequence starts with A
+            if unique_letters[0] == 'A':
+                # Check for gaps in the sequence (except the last letter)
+                expected_sequence = []
+                for i in range(ord('A'), ord(unique_letters[-1]) + 1):
+                    expected_sequence.append(chr(i))
+                
+                # Check if there are missing letters (excluding the last one)
+                # We only care about gaps before the last letter
+                if len(unique_letters) > 1:
+                    # Check all letters except the last one
+                    for i in range(len(unique_letters) - 1):
+                        current_letter = unique_letters[i]
+                        next_letter = unique_letters[i + 1]
+                        # If there's a gap (e.g., A to C, missing B)
+                        if ord(next_letter) - ord(current_letter) > 1:
+                            has_missing = True
+                            break
+        
+        # If missing letters found, highlight Column D and add warning
+        if has_missing:
+            # Highlight entire Column D (PO Number column) in red
+            for row_num in range(len(group_df)):
+                po_value = str(group_df.iloc[row_num, 3])
+                worksheet.write(row_num + 1, 3, po_value, red_highlight_format)
+            
+            # Add warning message below Total Quantity
+            worksheet.write(summary_start_row + 2, 0, 'With Missing PO Number', red_warning_format)
+            worksheet.write(summary_start_row + 2, 1, '', red_warning_format)
         
         # --- Create Pivot Table Summary starting at column Q ---
         # Find the columns we need for pivot (UPC and Quantity)
